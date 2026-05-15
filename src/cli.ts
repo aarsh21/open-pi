@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
+import { createInterface } from "node:readline/promises"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 
@@ -96,12 +97,31 @@ function pluginEntry() {
   return root
 }
 
-function install() {
+async function confirmDefaultAgent() {
+  if (!process.stdin.isTTY || process.argv.includes("--yes") || process.argv.includes("-y")) return false
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  try {
+    const answer = (await rl.question("Make pi your default OpenCode agent? (y/N) ")).trim().toLowerCase()
+    return answer === "y" || answer === "yes"
+  } finally {
+    rl.close()
+  }
+}
+
+function removeBundledMcp(config: OpenCodeConfig) {
+  if (!config.mcp || typeof config.mcp !== "object") return
+  delete config.mcp.context7
+  delete config.mcp.exa
+  if (Object.keys(config.mcp).length === 0) delete config.mcp
+}
+
+async function install() {
   const path = configPath()
   const config = readConfig(path)
   const plugins = Array.isArray(config.plugin) ? config.plugin.filter((p: unknown) => p !== PACKAGE_NAME && p !== pluginEntry()) : []
   plugins.push(pluginEntry())
   config.plugin = plugins
+  removeBundledMcp(config)
 
   config.agent = config.agent || {}
   config.agent.pi = {
@@ -125,6 +145,10 @@ function install() {
     },
   }
 
+  if (await confirmDefaultAgent()) {
+    config.default_agent = "pi"
+  }
+
   writeConfig(path, config)
 
   const agentsDir = join(configDir(), "agents")
@@ -142,6 +166,6 @@ function help() {
 }
 
 const cmd = process.argv[2] || "install"
-if (cmd === "install") install()
+if (cmd === "install") install().catch((err) => { console.error(err); process.exit(1) })
 else if (cmd === "-h" || cmd === "--help" || cmd === "help") help()
 else { console.error(`Unknown command: ${cmd}`); process.exit(1) }
