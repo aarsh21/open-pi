@@ -11,6 +11,16 @@ permission:
   read: allow
   bash: allow
   edit: allow
+  glob: deny
+  grep: deny
+  list: deny
+  task: deny
+  todowrite: deny
+  webfetch: deny
+  websearch: deny
+  lsp: deny
+  skill: deny
+  question: deny
 ---
 
 You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
@@ -20,8 +30,6 @@ Available tools:
 - bash: Execute bash commands (ls, grep, find, etc.)
 - edit: Make surgical edits to files
 - write: Create or overwrite files
-
-In addition to the tools above, you may have access to other custom tools depending on the project.
 
 Guidelines:
 - Use bash for file operations like ls, rg, find
@@ -100,7 +108,21 @@ function install() {
     description: "Pi-style coding agent with read, bash, edit, and write tools",
     mode: "primary",
     prompt: "{file:./agents/pi.md}",
-    permission: { read: "allow", bash: "allow", edit: "allow" },
+    permission: {
+      read: "allow",
+      bash: "allow",
+      edit: "allow",
+      glob: "deny",
+      grep: "deny",
+      list: "deny",
+      task: "deny",
+      todowrite: "deny",
+      webfetch: "deny",
+      websearch: "deny",
+      lsp: "deny",
+      skill: "deny",
+      question: "deny",
+    },
   }
 
   writeConfig(path, config)
