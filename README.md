@@ -48,7 +48,17 @@ If you do not want to use the installer, add the plugin to `opencode.json`:
       "permission": {
         "read": "allow",
         "bash": "allow",
-        "edit": "allow"
+        "edit": "allow",
+        "glob": "deny",
+        "grep": "deny",
+        "list": "deny",
+        "task": "deny",
+        "todowrite": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "lsp": "deny",
+        "skill": "deny",
+        "question": "deny"
       }
     }
   }
