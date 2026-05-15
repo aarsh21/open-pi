@@ -5,26 +5,7 @@ import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 
 const PACKAGE_NAME = "@aarsh21/open-pi"
-const AGENT_FILE = `---
-description: Pi-style coding agent with read, bash, edit, and write tools
-mode: primary
-permission:
-  read: allow
-  bash: allow
-  edit: allow
-  glob: deny
-  grep: deny
-  list: deny
-  task: deny
-  todowrite: deny
-  webfetch: deny
-  websearch: deny
-  lsp: deny
-  skill: deny
-  question: deny
----
-
-You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
+const AGENT_PROMPT = `You are an expert coding assistant operating inside pi, a coding agent harness. You help users by reading files, executing commands, editing code, and writing new files.
 
 Available tools:
 - read: Read file contents
@@ -97,22 +78,74 @@ function pluginEntry() {
   return root
 }
 
-async function confirmDefaultAgent() {
-  if (!process.stdin.isTTY || process.argv.includes("--yes") || process.argv.includes("-y")) return false
+async function confirm(message: string, defaultYes = false) {
+  if (!process.stdin.isTTY || process.argv.includes("--yes") || process.argv.includes("-y")) return defaultYes
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
-    const answer = (await rl.question("Make pi your default OpenCode agent? (y/N) ")).trim().toLowerCase()
+    const suffix = defaultYes ? " (Y/n) " : " (y/N) "
+    const answer = (await rl.question(`${message}${suffix}`)).trim().toLowerCase()
+    if (!answer) return defaultYes
     return answer === "y" || answer === "yes"
   } finally {
     rl.close()
   }
 }
 
-function removeBundledMcp(config: OpenCodeConfig) {
-  if (!config.mcp || typeof config.mcp !== "object") return
+function configureMcp(config: OpenCodeConfig, enableExa: boolean) {
+  if (!config.mcp || typeof config.mcp !== "object") config.mcp = {}
   delete config.mcp.context7
-  delete config.mcp.exa
+  if (enableExa) {
+    config.mcp.exa = {
+      type: "remote",
+      url: "https://mcp.exa.ai/mcp",
+      enabled: true,
+    }
+  } else {
+    delete config.mcp.exa
+  }
   if (Object.keys(config.mcp).length === 0) delete config.mcp
+}
+
+function piPermission(enableTodo: boolean) {
+  return {
+    read: "allow",
+    bash: "allow",
+    edit: "allow",
+    glob: "deny",
+    grep: "deny",
+    list: "deny",
+    task: "deny",
+    todowrite: enableTodo ? "allow" : "deny",
+    webfetch: "deny",
+    websearch: "deny",
+    lsp: "deny",
+    skill: "deny",
+    question: "deny",
+  }
+}
+
+function agentFile(enableTodo: boolean) {
+  const todoPermission = enableTodo ? "allow" : "deny"
+  return `---
+description: Pi-style coding agent with read, bash, edit, and write tools
+mode: primary
+permission:
+  read: allow
+  bash: allow
+  edit: allow
+  glob: deny
+  grep: deny
+  list: deny
+  task: deny
+  todowrite: ${todoPermission}
+  webfetch: deny
+  websearch: deny
+  lsp: deny
+  skill: deny
+  question: deny
+---
+
+${AGENT_PROMPT}`
 }
 
 async function install() {
@@ -120,32 +153,22 @@ async function install() {
   const config = readConfig(path)
   const plugins = Array.isArray(config.plugin) ? config.plugin.filter((p: unknown) => p !== PACKAGE_NAME && p !== pluginEntry()) : []
   plugins.push(pluginEntry())
+  const makeDefault = await confirm("Make pi your default OpenCode agent?", false)
+  const enableExa = await confirm("Enable Exa MCP web search?", false)
+  const enableTodo = await confirm("Enable OpenCode todo tool for pi agent?", false)
+
   config.plugin = plugins
-  removeBundledMcp(config)
+  configureMcp(config, enableExa)
 
   config.agent = config.agent || {}
   config.agent.pi = {
     description: "Pi-style coding agent with read, bash, edit, and write tools",
     mode: "primary",
     prompt: "{file:./agents/pi.md}",
-    permission: {
-      read: "allow",
-      bash: "allow",
-      edit: "allow",
-      glob: "deny",
-      grep: "deny",
-      list: "deny",
-      task: "deny",
-      todowrite: "deny",
-      webfetch: "deny",
-      websearch: "deny",
-      lsp: "deny",
-      skill: "deny",
-      question: "deny",
-    },
+    permission: piPermission(enableTodo),
   }
 
-  if (await confirmDefaultAgent()) {
+  if (makeDefault) {
     config.default_agent = "pi"
   }
 
@@ -153,7 +176,7 @@ async function install() {
 
   const agentsDir = join(configDir(), "agents")
   mkdirSync(agentsDir, { recursive: true })
-  writeFileSync(join(agentsDir, "pi.md"), AGENT_FILE)
+  writeFileSync(join(agentsDir, "pi.md"), agentFile(enableTodo))
 
   console.log("open-pi installed")
   console.log(`- Plugin added to ${path}`)
