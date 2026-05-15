@@ -78,17 +78,12 @@ function pluginEntry() {
   return root
 }
 
-async function confirm(message: string, defaultYes = false) {
-  if (!process.stdin.isTTY || process.argv.includes("--yes") || process.argv.includes("-y")) return defaultYes
-  const rl = createInterface({ input: process.stdin, output: process.stdout })
-  try {
-    const suffix = defaultYes ? " (Y/n) " : " (y/N) "
-    const answer = (await rl.question(`${message}${suffix}`)).trim().toLowerCase()
-    if (!answer) return defaultYes
-    return answer === "y" || answer === "yes"
-  } finally {
-    rl.close()
-  }
+async function confirm(rl: ReturnType<typeof createInterface> | null, message: string, defaultYes = false) {
+  if (!rl || !process.stdin.isTTY || process.argv.includes("--yes") || process.argv.includes("-y")) return defaultYes
+  const suffix = defaultYes ? " (Y/n) " : " (y/N) "
+  const answer = (await rl.question(`${message}${suffix}`)).trim().toLowerCase()
+  if (!answer) return defaultYes
+  return answer === "y" || answer === "yes"
 }
 
 function configureMcp(config: OpenCodeConfig, enableExa: boolean) {
@@ -153,9 +148,19 @@ async function install() {
   const config = readConfig(path)
   const plugins = Array.isArray(config.plugin) ? config.plugin.filter((p: unknown) => p !== PACKAGE_NAME && p !== pluginEntry()) : []
   plugins.push(pluginEntry())
-  const makeDefault = await confirm("Make pi your default OpenCode agent?", false)
-  const enableExa = await confirm("Enable Exa MCP web search?", false)
-  const enableTodo = await confirm("Enable OpenCode todo tool for pi agent?", false)
+  const rl = process.stdin.isTTY && !process.argv.includes("--yes") && !process.argv.includes("-y")
+    ? createInterface({ input: process.stdin, output: process.stdout })
+    : null
+  let makeDefault = false
+  let enableExa = false
+  let enableTodo = false
+  try {
+    makeDefault = await confirm(rl, "Make pi your default OpenCode agent?", false)
+    enableExa = await confirm(rl, "Enable Exa MCP web search?", false)
+    enableTodo = await confirm(rl, "Enable OpenCode todo tool for pi agent?", false)
+  } finally {
+    rl?.close()
+  }
 
   config.plugin = plugins
   configureMcp(config, enableExa)
