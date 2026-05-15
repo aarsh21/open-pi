@@ -15,13 +15,13 @@ It installs:
 ## Install
 
 ```bash
-bunx open-pi install
+bunx @aarsh21/open-pi install
 ```
 
 or:
 
 ```bash
-npx open-pi install
+npx @aarsh21/open-pi install
 ```
 
 The installer updates your OpenCode config and writes the agent prompt to:
@@ -39,7 +39,7 @@ If you do not want to use the installer, add the plugin to `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["open-pi"],
+  "plugin": ["@aarsh21/open-pi"],
   "agent": {
     "pi": {
       "description": "Pi-style coding agent with read, bash, edit, and write tools",

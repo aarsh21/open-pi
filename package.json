@@ -1,5 +1,5 @@
 {
-  "name": "open-pi",
+  "name": "@aarsh21/open-pi",
   "version": "0.1.0",
   "description": "Pi-style agent and tool plugin for OpenCode.",
   "type": "module",

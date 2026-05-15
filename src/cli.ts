@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 
-const PACKAGE_NAME = "open-pi"
+const PACKAGE_NAME = "@aarsh21/open-pi"
 const AGENT_FILE = `---
 description: Pi-style coding agent with read, bash, edit, and write tools
 mode: primary
@@ -116,7 +116,7 @@ function install() {
 }
 
 function help() {
-  console.log(`open-pi\n\nUsage:\n  bunx open-pi install\n  npx open-pi install\n\nInstalls the OpenCode plugin and Pi agent into your OpenCode config directory.`)
+  console.log(`open-pi\n\nUsage:\n  bunx @aarsh21/open-pi install\n  npx @aarsh21/open-pi install\n\nInstalls the OpenCode plugin and Pi agent into your OpenCode config directory.`)
 }
 
 const cmd = process.argv[2] || "install"
