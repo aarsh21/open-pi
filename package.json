@@ -12,9 +12,14 @@
     }
   },
   "bin": {
-    "open-pi": "./dist/cli.js"
+    "open-pi": "dist/cli.js"
   },
-  "files": ["dist", "agents", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "agents",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
     "prepare": "npm run build",
@@ -28,6 +33,13 @@
     "@types/node": "latest",
     "typescript": "latest"
   },
-  "keywords": ["opencode", "opencode-plugin", "open-pi", "pi", "agent", "tools"],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "open-pi",
+    "pi",
+    "agent",
+    "tools"
+  ],
   "license": "MIT"
 }
