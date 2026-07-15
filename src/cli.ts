@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { createInterface } from "node:readline/promises"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
@@ -86,11 +86,24 @@ async function install() {
   writeConfig(path, plan.config)
   mkdirSync(dirname(plan.agentPath), { recursive: true })
   writeFileSync(plan.agentPath, plan.agentFile)
+  clearPluginCache()
 
   console.log("open-pi installed")
   console.log(`- Plugin added to ${path}`)
   console.log(`- Pi agent written to ${plan.agentPath}`)
   console.log("Restart OpenCode and switch to the pi agent.")
+}
+
+// OpenCode snapshots npm plugins into its package cache at the version first
+// resolved and never re-resolves "latest"; clear our entries so every install
+// picks up the current release.
+function clearPluginCache() {
+  const cacheDir = process.env.XDG_CACHE_HOME || join(homedir(), ".cache")
+  for (const entry of [PACKAGE_NAME, `${PACKAGE_NAME}@latest`]) {
+    try {
+      rmSync(join(cacheDir, "opencode", "packages", entry), { recursive: true, force: true })
+    } catch {}
+  }
 }
 
 function help() {
