@@ -67,9 +67,11 @@ async function install() {
     : null
   let makeDefault = false
   let enableTodo = false
+  let enableQuestion = false
   try {
     makeDefault = await confirm(rl, "Make pi your default OpenCode agent?", false)
     enableTodo = await confirm(rl, "Enable OpenCode todo tool for pi agent?", false)
+    enableQuestion = await confirm(rl, "Enable ask-user question tool for pi agent (agent can ask you multiple-choice questions)?", false)
   } finally {
     rl?.close()
   }
@@ -78,7 +80,7 @@ async function install() {
     currentConfig,
     pluginEntry: pluginEntry(),
     configDir: configDir(),
-    options: { makeDefault, enableTodo },
+    options: { makeDefault, enableTodo, enableQuestion },
   })
 
   writeConfig(path, plan.config)

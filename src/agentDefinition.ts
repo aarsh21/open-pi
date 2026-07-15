@@ -26,7 +26,14 @@ Guidelines:
 - Show file paths clearly when working with files
 `
 
-export function piPermission(enableTodo: boolean) {
+export type AgentOptions = {
+  enableTodo: boolean
+  // OpenCode's native question tool: header + options + custom answers,
+  // rendered in the TUI. Denied by default to keep pi interruption-free.
+  enableQuestion: boolean
+}
+
+export function piPermission(options: AgentOptions) {
   return {
     read: "allow",
     bash: "allow",
@@ -35,26 +42,27 @@ export function piPermission(enableTodo: boolean) {
     grep: "deny",
     list: "deny",
     task: "deny",
-    todowrite: enableTodo ? "allow" : "deny",
+    todowrite: options.enableTodo ? "allow" : "deny",
     webfetch: "deny",
     websearch: "deny",
     lsp: "deny",
     skill: "deny",
-    question: "deny",
+    question: options.enableQuestion ? "allow" : "deny",
   }
 }
 
-export function piAgentConfig(enableTodo: boolean) {
+export function piAgentConfig(options: AgentOptions) {
   return {
     description: "Pi-style coding agent with read, bash, edit, and write tools",
     mode: "primary",
     prompt: "{file:./agents/pi.md}",
-    permission: piPermission(enableTodo),
+    permission: piPermission(options),
   }
 }
 
-export function piAgentFile(enableTodo: boolean) {
-  const todoPermission = enableTodo ? "allow" : "deny"
+export function piAgentFile(options: AgentOptions) {
+  const todoPermission = options.enableTodo ? "allow" : "deny"
+  const questionPermission = options.enableQuestion ? "allow" : "deny"
   return `---
 description: Pi-style coding agent with read, bash, edit, and write tools
 mode: primary
@@ -71,7 +79,7 @@ permission:
   websearch: deny
   lsp: deny
   skill: deny
-  question: deny
+  question: ${questionPermission}
 ---
 
 ${AGENT_PROMPT}`

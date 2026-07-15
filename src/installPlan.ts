@@ -5,6 +5,7 @@ import type { OpenCodeConfig } from "./jsonConfig.js"
 export type InstallOptions = {
   makeDefault: boolean
   enableTodo: boolean
+  enableQuestion: boolean
 }
 
 export type InstallationPlan = {
@@ -32,7 +33,7 @@ export function createInstallationPlan(args: { currentConfig: OpenCodeConfig; pl
   removeLegacyMcpEntries(config)
 
   config.agent = config.agent || {}
-  config.agent.pi = piAgentConfig(args.options.enableTodo)
+  config.agent.pi = piAgentConfig(args.options)
 
   // Only ever set the default; answering "no" on a reinstall must not undo an
   // existing default_agent choice.
@@ -43,6 +44,6 @@ export function createInstallationPlan(args: { currentConfig: OpenCodeConfig; pl
   return {
     config,
     agentPath: join(args.configDir, "agents", "pi.md"),
-    agentFile: piAgentFile(args.options.enableTodo),
+    agentFile: piAgentFile(args.options),
   }
 }

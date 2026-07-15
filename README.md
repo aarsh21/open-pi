@@ -12,6 +12,7 @@ It installs:
   - `edit` (Pi's exact-then-fuzzy matching: smart quotes, trailing whitespace, BOM, CRLF)
   - `write`
 - `web_search` — OpenAI web search, available when OpenAI credentials exist (ChatGPT-subscription OAuth from `/connect` or `OPENAI_API_KEY`). Credentials are checked at plugin load, so restart OpenCode after running `/connect`.
+- Optional ask-user questions: the installer asks whether to enable OpenCode's native `question` tool for the pi agent (multiple-choice questions with custom answers, rendered in the TUI). Off by default to keep pi interruption-free.
 
 Tool output truncation is left to OpenCode's built-in cap, keeping tool results token-lean.
 
