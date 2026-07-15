@@ -104,27 +104,42 @@ const writeTool = tool({
   },
 })
 
-const webSearchTool = tool({
-  description:
-    "Search the web via OpenAI web search. Returns a concise answer with cited sources. Use for current events, documentation, or anything outside the local project.",
-  args: {
-    query: tool.schema.string().describe("Search query"),
-    numResults: tool.schema.number().optional().describe("Maximum sources to cite (default 5, max 20)"),
-    recencyFilter: tool.schema
-      .enum(["day", "week", "month", "year"])
-      .optional()
-      .describe("Prefer results from this recent period"),
-    domainFilter: tool.schema
-      .array(tool.schema.string())
-      .optional()
-      .describe('Restrict to these domains; prefix with "-" to exclude a domain'),
-  },
-  async execute(args, context) {
-    return openAIWebSearch(args, context.abort)
-  },
-})
+function createWebSearchTool(discoveredModels: string[]) {
+  return tool({
+    description:
+      "Search the web via OpenAI web search. Returns a concise answer with cited sources. Use for current events, documentation, or anything outside the local project.",
+    args: {
+      query: tool.schema.string().describe("Search query"),
+      numResults: tool.schema.number().optional().describe("Maximum sources to cite (default 5, max 20)"),
+      recencyFilter: tool.schema
+        .enum(["day", "week", "month", "year"])
+        .optional()
+        .describe("Prefer results from this recent period"),
+      domainFilter: tool.schema
+        .array(tool.schema.string())
+        .optional()
+        .describe('Restrict to these domains; prefix with "-" to exclude a domain'),
+    },
+    async execute(args, context) {
+      return openAIWebSearch(args, context.abort, discoveredModels)
+    },
+  })
+}
 
-export const PiAgentPlugin: Plugin = async () => {
+async function discoverOpenAIModels(client: unknown): Promise<string[]> {
+  try {
+    const api = client as { config?: { providers?: () => Promise<any> } }
+    const response = await api.config?.providers?.()
+    const providers = response?.data?.providers ?? response?.providers ?? response?.data ?? response
+    if (!Array.isArray(providers)) return []
+    const openai = providers.find((p: any) => p?.id === "openai")
+    return openai?.models && typeof openai.models === "object" ? Object.keys(openai.models) : []
+  } catch {
+    return []
+  }
+}
+
+export const PiAgentPlugin: Plugin = async ({ client }) => {
   const tools: Record<string, ReturnType<typeof tool>> = {
     read: readTool,
     bash: bashTool,
@@ -134,7 +149,7 @@ export const PiAgentPlugin: Plugin = async () => {
   // Credentials-gated: only expose web search when OpenAI auth exists, so the
   // agent never sees a dead tool.
   if (await hasOpenAICredentials()) {
-    tools.web_search = webSearchTool
+    tools.web_search = createWebSearchTool(await discoverOpenAIModels(client))
   }
   return { tool: tools }
 }

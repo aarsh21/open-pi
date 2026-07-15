@@ -162,7 +162,11 @@ export function formatSearchMarkdown(answer: string, results: SearchResult[]): s
   return text
 }
 
-export async function openAIWebSearch(args: WebSearchArgs, signal?: AbortSignal): Promise<string> {
+export async function openAIWebSearch(
+  args: WebSearchArgs,
+  signal?: AbortSignal,
+  discoveredModels?: string[],
+): Promise<string> {
   if (signal?.aborted) throw new Error("Web search aborted")
   const auth = await resolveOpenAIAuth()
   if (!auth) {
@@ -173,7 +177,16 @@ export async function openAIWebSearch(args: WebSearchArgs, signal?: AbortSignal)
   const useCodexEndpoint = auth.kind === "oauth" && jwt.isCodex
 
   const url = useCodexEndpoint ? "https://chatgpt.com/backend-api/codex/responses" : "https://api.openai.com/v1/responses"
-  const model = process.env.OPENPI_WEBSEARCH_MODEL || (useCodexEndpoint ? "gpt-5" : "gpt-5-mini")
+  // Model ids the user's OpenCode actually offers come first (discovered from
+  // the openai provider at plugin init); static fallbacks after. Any model the
+  // endpoint rejects as unsupported is skipped, so whichever model the auth
+  // token serves ends up working.
+  const fallbacks = useCodexEndpoint
+    ? ["gpt-5.4-mini", "gpt-5.4", "gpt-5.5", "gpt-5.3-codex-spark"]
+    : ["gpt-5-mini", "gpt-5.4-mini"]
+  const candidates = process.env.OPENPI_WEBSEARCH_MODEL
+    ? [process.env.OPENPI_WEBSEARCH_MODEL]
+    : [...new Set([...(discoveredModels ?? []), ...fallbacks])].slice(0, 8)
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${auth.token}`,
@@ -186,52 +199,68 @@ export async function openAIWebSearch(args: WebSearchArgs, signal?: AbortSignal)
     headers.originator = "open-pi"
   }
 
-  const body: Record<string, unknown> = {
+  const domainFilters = buildDomainFilters(args.domainFilter)
+  const requestBody = (model: string): Record<string, unknown> => ({
     model,
     instructions: buildInstructions(args),
     input: [{ role: "user", content: [{ type: "input_text", text: args.query }] }],
-    tools: [{ type: "web_search", ...(buildDomainFilters(args.domainFilter) ? { filters: buildDomainFilters(args.domainFilter) } : {}) }],
+    tools: [{ type: "web_search", ...(domainFilters ? { filters: domainFilters } : {}) }],
     include: ["web_search_call.action.sources"],
     store: false,
     stream: true,
     tool_choice: "required",
-  }
+  })
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 60_000)
-  const onExternalAbort = () => controller.abort()
-  signal?.addEventListener("abort", onExternalAbort, { once: true })
-  let response: Response
-  try {
-    response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: controller.signal })
-  } catch (err) {
-    clearTimeout(timer)
-    signal?.removeEventListener("abort", onExternalAbort)
-    if (signal?.aborted) throw new Error("Web search aborted")
-    if (controller.signal.aborted) throw new Error("Web search timed out after 60 seconds")
-    throw err
-  }
+  let lastModelError: string | undefined
+  for (const model of candidates) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 60_000)
+    const onExternalAbort = () => controller.abort()
+    signal?.addEventListener("abort", onExternalAbort, { once: true })
 
-  try {
-    if (response.status === 401 || response.status === 403) {
-      throw new Error(
-        "OpenAI authentication failed (token may be expired). Re-run /connect for openai in OpenCode or set OPENAI_API_KEY.",
-      )
+    try {
+      let response: Response
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(requestBody(model)),
+          signal: controller.signal,
+        })
+      } catch (err) {
+        if (signal?.aborted) throw new Error("Web search aborted")
+        if (controller.signal.aborted) throw new Error("Web search timed out after 60 seconds")
+        throw err
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(
+          "OpenAI authentication failed (token may be expired). Re-run /connect for openai in OpenCode or set OPENAI_API_KEY.",
+        )
+      }
+      if (!response.ok) {
+        const detail = (await response.text().catch(() => "")).slice(0, 500)
+        if ((response.status === 400 || response.status === 404) && /not supported|does not exist|unknown model/i.test(detail)) {
+          lastModelError = `OpenAI web search failed with status ${response.status}: ${detail}`
+          continue
+        }
+        throw new Error(`OpenAI web search failed with status ${response.status}${detail ? `: ${detail}` : ""}`)
+      }
+
+      const sseText = await response.text()
+      const items = parseResponsesSSE(sseText)
+      const maxResults = Math.min(Math.max(args.numResults ?? 5, 1), 20)
+      const { answer, results } = extractSearchOutput(items, maxResults)
+      return formatSearchMarkdown(answer, results)
+    } finally {
+      clearTimeout(timer)
+      signal?.removeEventListener("abort", onExternalAbort)
     }
-    if (!response.ok) {
-      const detail = (await response.text().catch(() => "")).slice(0, 500)
-      throw new Error(`OpenAI web search failed with status ${response.status}${detail ? `: ${detail}` : ""}`)
-    }
-
-    const sseText = await response.text()
-    const items = parseResponsesSSE(sseText)
-    const maxResults = Math.min(Math.max(args.numResults ?? 5, 1), 20)
-    const { answer, results } = extractSearchOutput(items, maxResults)
-    return formatSearchMarkdown(answer, results)
-  } finally {
-    clearTimeout(timer)
-    signal?.removeEventListener("abort", onExternalAbort)
   }
+
+  throw new Error(
+    `${lastModelError ?? "OpenAI web search failed: no usable model."} Set OPENPI_WEBSEARCH_MODEL to a model your account supports.`,
+  )
 }
 
 export async function hasOpenAICredentials(): Promise<boolean> {
