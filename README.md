@@ -5,12 +5,15 @@ Pi-style agent and tool plugin for OpenCode.
 It installs:
 
 - OpenCode plugin `open-pi`
-- Primary OpenCode agent `pi`
-- Pi-style tools that override OpenCode built-ins:
+- Primary OpenCode agent `pi` (a separate agent — your other agents are untouched; the installer asks whether to make it the default)
+- Pi's system prompt and Pi-style tools that override OpenCode built-ins:
   - `read`
-  - `bash`
-  - `edit`
+  - `bash` (always real bash, SIGKILL process-tree cleanup)
+  - `edit` (Pi's exact-then-fuzzy matching: smart quotes, trailing whitespace, BOM, CRLF)
   - `write`
+- `web_search` — OpenAI web search, available when OpenAI credentials exist (ChatGPT-subscription OAuth from `/connect` or `OPENAI_API_KEY`). Credentials are checked at plugin load, so restart OpenCode after running `/connect`.
+
+Tool output truncation is left to OpenCode's built-in cap, keeping tool results token-lean.
 
 ## Install
 

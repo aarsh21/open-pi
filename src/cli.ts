@@ -66,11 +66,9 @@ async function install() {
     ? createInterface({ input: process.stdin, output: process.stdout })
     : null
   let makeDefault = false
-  let enableExa = false
   let enableTodo = false
   try {
     makeDefault = await confirm(rl, "Make pi your default OpenCode agent?", false)
-    enableExa = await confirm(rl, "Enable Exa MCP web search?", false)
     enableTodo = await confirm(rl, "Enable OpenCode todo tool for pi agent?", false)
   } finally {
     rl?.close()
@@ -80,7 +78,7 @@ async function install() {
     currentConfig,
     pluginEntry: pluginEntry(),
     configDir: configDir(),
-    options: { makeDefault, enableExa, enableTodo },
+    options: { makeDefault, enableTodo },
   })
 
   writeConfig(path, plan.config)

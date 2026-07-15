@@ -4,7 +4,6 @@ import type { OpenCodeConfig } from "./jsonConfig.js"
 
 export type InstallOptions = {
   makeDefault: boolean
-  enableExa: boolean
   enableTodo: boolean
 }
 
@@ -14,18 +13,11 @@ export type InstallationPlan = {
   agentFile: string
 }
 
-export function configureMcp(config: OpenCodeConfig, enableExa: boolean) {
-  if (!config.mcp || typeof config.mcp !== "object") config.mcp = {}
+// Older open-pi installers added these MCP entries; clean them up on reinstall.
+function removeLegacyMcpEntries(config: OpenCodeConfig) {
+  if (!config.mcp || typeof config.mcp !== "object") return
   delete config.mcp.context7
-  if (enableExa) {
-    config.mcp.exa = {
-      type: "remote",
-      url: "https://mcp.exa.ai/mcp",
-      enabled: true,
-    }
-  } else {
-    delete config.mcp.exa
-  }
+  delete config.mcp.exa
   if (Object.keys(config.mcp).length === 0) delete config.mcp
 }
 
@@ -37,11 +29,13 @@ export function createInstallationPlan(args: { currentConfig: OpenCodeConfig; pl
   plugins.push(args.pluginEntry)
 
   config.plugin = plugins
-  configureMcp(config, args.options.enableExa)
+  removeLegacyMcpEntries(config)
 
   config.agent = config.agent || {}
   config.agent.pi = piAgentConfig(args.options.enableTodo)
 
+  // Only ever set the default; answering "no" on a reinstall must not undo an
+  // existing default_agent choice.
   if (args.options.makeDefault) {
     config.default_agent = "pi"
   }
